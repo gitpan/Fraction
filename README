@@ -1,15 +1,30 @@
-This is Math::Fraction v.3a
+This is Math::Fraction v.4a
 
 Purpose: To Manipulate Exact Fractions
 
 Copyright 1997 by Kevin Atkinson (kevina@cark.net)
-Version .3a  (8 Mar 1997)
+Version .4a  (24 Mar 1997)
 Alpha Release: Not Very Well Tested
 Developed with Perl v 5.003_37 for Win32.
 Has been testing on Perl Ver 5.003 on a solaris machine.
 
-This program is ment to replace the old bigrat perl library.  It can do
-everthing it can do and a lot more.
+This program is meant to replace the old bigrat perl library.  It can do
+everything it can do and a lot more.
+
+Some of its features include:
+  - Being able to add, subtract, multiply, and divide, among other things
+    just like you would normal numbers that's to the overload module.
+  - Being able to convert a decimal, including repeating ones, into a
+    fraction.  For example, 1.142857142857 would become 8/7.
+  - Being able to control how the fraction is displayed.  For example
+    8/7 verses 1 1/7
+  - Being able to use arbitrary size numbers in the numerator and the
+    denominator.
+  - Being able to covert between SMALL (using normal floats/integers) and
+    BIG (using arbitrary size floats/integers) as needed so you do not have
+    to worry about it. (New as of ver .4a)
+  - Being able to have multiple default sets so that a function can modify
+    the defaults with out effecting other functions (New as of ver .4a)
 
 By using this software you have become an Alpha tester.  By becoming an
 Alpha tester you have agreed to give be some sort of feedback.
@@ -26,5 +41,6 @@ To test the module out run the fraction.pl program provided.  Type
 demo to see a small demonstration of its features.
 
 Because it is still in Alpha state their is not formal way to install it.
-It use it simply unpack the tar file and run it from their.
+It use it simply unpack the tar file and run it from their. To upgrade
+simply overwrite the old files.
 

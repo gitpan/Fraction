@@ -3,7 +3,7 @@ package Math::Fraction;
 # Purpose: To Manipulate Exact Fractions
 #
 # Copyright 1997 by Kevin Atkinson (kevina@cark.net)
-# Version .3a  (8 Mar 1997)
+# Version .4a  (24 Mar 1997)
 # Alpha Release: Not Very Well Tested
 # Developed with Perl v 5.003_37 for Win32.
 # Has been testing on Perl Ver 5.003 on a solaris machine.
@@ -24,12 +24,8 @@ $VERSION = ".3";
 
 use Carp;
 use strict;
-
 use Math::BigInt;
 use Math::BigFloat;
-
-my $DIGITS = undef;
-
 use overload
    "+"   => "add",
    "-"   => "sub",
@@ -38,67 +34,98 @@ use overload
    "abs" => "abs",
    "**"  => "pow",
    "sqrt"=> "sqrt",
-  '""'   => "string",
-  "0+"   => "decimal",
-  "fallback" => 1;
+   "<=>" => "cmp",
+   '""'  => "string",
+   "0+"  => "decimal";
+   "fallback" => 1;
 
-my @DEF_TAGS = qw(NORMAL REDUCE SMALL);
-
-my %TAGS = (
-  NORMAL     => [0, 'NORMAL'],
-  MIXED      => [0, 'MIXED'],
-  MIXED_RAW  => [0, 'MIXED_RAW'],
-  DEF_MIXED  => [0, undef],
-  REDUCE     => [1, 'REDUCE'],
-  NO_REDUCE  => [1, 'NO_REDUCE'],
-  DEF_REDUCE => [1, undef],
-  IS_REDUCED => [1, 'IS_REDUCED'],
-  SMALL      => [2, 'SMALL'],
-  BIG        => [2, 'BIG'],
-  DEF_BIG    => [2, undef],
-  CONVERTED  => [0, 'CONVERTED'],
+my %DEF = (
+  CURRENT => {TAGS => ['NORMAL','REDUCE','SMALL','AUTO'], DIGITS => undef, SYSTEM => 1, NAME => 'DEFAULT'},
+  DEFAULT => {TAGS => ['NORMAL','REDUCE','SMALL','AUTO'], DIGITS => undef, READONLY=>1, SYSTEM=>1},
+  BLANK   => {TAGS => ['','','']                 , DIGITS => ''   , READONLY=>1, SYSTEM=>1},
 );
 
-my @DEF_TAG = qw(DEF_MIXED DEF_REDUCE, DEF_BIG);
+my ($OUTFORMAT, $REDUCE, $SIZE, $AUTO, $INTERNAL, $RED_STATE) = (0..5);
+my $TAG_END = 3;          #Last index of tags ment to be kept.
+
+my %TAGS = (
+  NORMAL     => [$OUTFORMAT, 'NORMAL'],
+  MIXED      => [$OUTFORMAT, 'MIXED'],
+  MIXED_RAW  => [$OUTFORMAT, 'MIXED_RAW'],
+  DEF_MIXED  => [$OUTFORMAT, undef],
+  REDUCE     => [$REDUCE, 'REDUCE'],
+  NO_REDUCE  => [$REDUCE, 'NO_REDUCE'],
+  DEF_REDUCE => [$REDUCE, undef],
+  SMALL      => [$SIZE, 'SMALL'],
+  BIG        => [$SIZE, 'BIG'],
+  DEF_BIG    => [$SIZE, undef],
+  AUTO       => [$AUTO, 'AUTO'],
+  NO_AUTO    => [$AUTO, 'NO_AUTO'],
+  DEF_AUTO   => [$AUTO, undef],
+  CONVERTED  => [$INTERNAL, 'CONVERTED'],
+  IS_REDUCED => [$RED_STATE, 'IS_REDUCED'],
+);
+
+my @DEF_TAG = qw(DEF_MIXED DEF_REDUCE DEF_BIG DEF_AUTO);
+
+my $ID = 01;
 
 sub new {
   my $proto = shift;
   my $class = ref($proto) || $proto;
-  my ($self, @frac, @tags);
+  my ($self, @frac, @tags, $tag, $decimal, $p1, $p2, $p3);
   if (&_is_decimal($_[0]) and &_is_decimal($_[1]) and &_is_decimal($_[2]) ) {
       my $sign = $_[0]/abs($_[0]);
       @tags = &_tags(@_[3..$#_]);
-      my ($p1, $p2, $p3) = &_fix_num(\@tags, @_[0..2]);
+      ($decimal, $p1, $p2, $p3) = &_fix_num(\@tags, @_[0..2]);
       ($p1, $p2, $p3) = (abs($p1),abs($p2),abs($p3) );
-      @frac = &_de_decimal($p1*$p3+$p2, $sign*$p3, \@tags);
+      @frac = ($p1*$p3+$p2, $sign*$p3);
+      @frac = &_de_decimal(@frac, \@tags) if $decimal;
   } elsif (&_is_decimal($_[0]) and &_is_decimal($_[1]) ) {
       @tags = &_tags(@_[2..$#_]);
-      my ($p1, $p2) = &_fix_num(\@tags, @_[0..1]);
-      @frac = &_de_decimal($p1, $p2, \@tags);
+      ($decimal, @frac) = &_fix_num(\@tags, @_[0..1]);
+      @frac = &_de_decimal(@frac, \@tags) if $decimal;
       @frac = &_simplify_sign(@frac);
   } elsif (&_is_decimal($_[0]) ) {
+    {
       @tags = &_tags(@_[1..$#_]);
-      my ($p1) = &_fix_num(\@tags, @_[0]);
-      @frac = &_from_decimal($p1);
+      ($decimal, $p1) = &_fix_num(\@tags, $_[0]);
+      @frac=($p1,1), last if not $decimal;
+      (@frac[0..1], $tag) = &_from_decimal($p1);
+      @tags = &_tags(@tags, $tag);
+      ($decimal,@frac) = &_fix_num(\@tags, @frac);
+      @frac = &_de_decimal(@frac, \@tags) if $decimal;
+    }
   } elsif ($_[0] =~ /\s*([\+\-]?)\s*([0-9e\.\+\-]+)\s+([0-9e\.\+\-]+)\s*\/\s*([0-9e\.\+\-]+)/) {
       my $sign = $1.'1';
       @tags = &_tags(@_[1..$#_]);
-      my ($p1, $p2, $p3) = &_fix_num(\@tags, $2, $3, $4);
+      ($decimal, $p1, $p2, $p3) = &_fix_num(\@tags, $2, $3, $4);
       ($p1, $p2, $p3) = (abs($p1),abs($p2),abs($p3) );
-      @frac = &_de_decimal($p1*$p3+$p2, $sign*$p3, \@tags);
+      @frac = ($p1*$p3+$p2, $sign*$p3);
+      @frac = &_de_decimal($p1*$p3+$p2, $sign*$p3, \@tags) if $decimal;
   } elsif ($_[0] =~ /\s*([0-9e\.\+\-]+)\s*\/\s*([0-9e\.\+\-]+)/) {
       @tags = &_tags(@_[1..$#_]);
-      my ($p1, $p2) = &_fix_num(\@tags, $1, $2);
-      @frac = &_de_decimal($p1,$p2, \@tags);
+      ($decimal, @frac) = &_fix_num(\@tags, $1, $2);
+      @frac = &_de_decimal(@frac, \@tags) if $decimal;
       @frac = &_simplify_sign(@frac);
   } else {
       croak("\"$_[0]\" is of unknown format");
   }
   croak ("Can not have 0 as the denominator") if $frac[1] == 0;
 
-  @frac = &_reduce(@frac) unless &_tag(1, \@tags) eq 'NO_REDUCE';
+  if ( &_tag($REDUCE, \@tags) ne 'NO_REDUCE'
+       and &_tag($RED_STATE, \@tags) ne 'IS_REDUCED' )
+  {
+    my $not_reduced;
+    ($not_reduced, @frac) = &_reduce(@frac);
+    @frac = &_fix_auto('DOWN',\@tags, @frac) if $not_reduced
+                                       and &_tag($AUTO, \@tags) eq 'AUTO';
+  }
+                         
+  @tags[$RED_STATE] = undef if &_tag($RED_STATE, \@tags) eq 'IS_REDUCED';
 
-  $self = [@frac, @tags];
+  $self->{'frac'}=\@frac;
+  $self->{'tags'}=\@tags;
   bless ($self, $class);
   return $self;
 }
@@ -111,17 +138,12 @@ sub frac {
   return Math::Fraction->new(@_);
 }
 
-sub modify_default {
-  Math::Fraction->modify_tag(@_);
-}
-
 # Now are the methodes
 
 sub string {
   my $self = shift;
-  my @frac = @{$self}[0..1];
-  my @tags = @{$self}[2..$#{$self}];
-  my $mixed = &_tag (0, [$_[0]], \@tags );
+  my @frac;
+  my $mixed = &_tag ($OUTFORMAT, [$_[0]], $self->{'tags'} );
   if ($mixed eq 'MIXED') {
       @frac = $self->list('MIXED');
       my $string = "";
@@ -140,7 +162,7 @@ sub string {
 
 sub list {
   my $self = shift;
-  my @frac = @{$self};
+  my @frac = @{$self->{'frac'}};
   if ($_[0] eq "MIXED") {
     my $whole=$frac[0]/$frac[1];
     $whole=int($whole) if not ref($frac[0]);
@@ -153,64 +175,169 @@ sub list {
 
 sub reduce {
   my $self = shift;
-  my @frac = @{$self}[0..1];
-  my @tags = @{$self}[2 .. $#{$self}];
-
-  return Math::Fraction->new(&_reduce(@frac), @tags);
+  my ($undef, @frac) = &_reduce(@{$self->{'frac'}});
+  return Math::Fraction->new(@frac, @{$self->{'tags'}});
 }
 
 
 sub decimal {
   my $self = shift;
-  my @frac = @{$self};
+  my @frac = @{$self->{'frac'}};
   return $frac[0]/$frac[1] if not ref($frac[0]);
-  return Math::BigFloat->new(Math::BigFloat::fdiv($frac[0], $frac[1], $DIGITS) ) if ref($frac[0]);
+  return Math::BigFloat->new(Math::BigFloat::fdiv($frac[0], $frac[1], $DEF{CURRENT}{DIGITS}) ) if ref($frac[0]);
 }
 
 sub num {
   my $self = shift;
-  my @frac = @{$self};
+  my @frac = @{$self->{'frac'}};
   return $frac[0]/$frac[1] if not ref($frac[0]);
-  return Math::BigFloat->new(Math::BigFloat::fdiv($frac[0], $frac[1], $DIGITS) ) if ref($frac[0]);
+  return Math::BigFloat->new(Math::BigFloat::fdiv($frac[0], $frac[1], $DEF{CURRENT}{DIGITS}) ) if ref($frac[0]);
 }
+
+## For the next three methods:
+# If used on the object use the tags of the object
+# If given a class use the dafault tags,
+# .... if a default set is specified then return for that set.
 
 sub is_tag {
   my $self = shift;
   my $tag = shift;
-  my $default = 1 if shift eq 'INC_DEF';
+  my $default = 1 if $_[0] eq 'INC_DEF';
   my $is_tag = 0;
   my @tags;
-  @tags = @{$self}[2..$#{$self}]  if ref($self);
-  @tags = @DEF_TAGS               if $self eq "Math::Fraction";
   {
-    $is_tag = 0, last if not $TAGS{$tag};
-     my ($num, $tag) = @{$TAGS{$tag}};
-    $is_tag = 1    , last if $tags[$num] eq $tag;
-    $is_tag = undef, last if $tags[$num] eq undef and not $default;
-    $is_tag = -1   , last if $DEF_TAGS[$num] eq $tag
-                           and $tags[$num] eq undef and $default;
-    $is_tag = 0;
+    $is_tag = 0, last if not $TAGS{$tag}; #if there is no such tag ret=0
+    my ($num, $tag) = @{$TAGS{$tag}};
+    if (ref($self) eq "Math::Fraction") {
+      @tags = @{$self->{'tags'}};
+      $is_tag = 1    , last if $tags[$num] eq $tag;
+      $is_tag = undef, last if $tags[$num] eq undef and not $default;
+      $is_tag = -1   , last if $DEF{CURRENT}{TAGS}[$num] eq $tag
+                             and $tags[$num] eq undef and $default;
+      $is_tag = 0; 
+    } else {
+      my $set;
+      $set = 'CURRENT' unless $set = $_[0];
+      $set = 'BLANK'   unless exists $DEF{$set};
+      $is_tag = 1   , last if $DEF{$set}{TAGS}[$num] eq $tag;
+      $is_tag = 0;
+    }
   }
   return $is_tag;
 }
 
 sub tags {
   my $self = shift;
-  my $inc_def = 1 if shift eq 'INC_DEF';
   my @tags;
-  @tags = @{$self}[2..$#{$self}]  if ref($self);
-  @tags = @DEF_TAGS               if $self eq "Math::Fraction";
-  my $num;
-  foreach $num (0 .. $#tags) {
-    $tags[$num] = $DEF_TAG[$num]  if $tags[$num] eq undef and not $inc_def;
-    $tags[$num] = $DEF_TAGS[$num] if $tags[$num] eq undef and $inc_def;
+  if (ref($self) eq "Math::Fraction") {
+    my $inc_def = 1 if @_[0] eq 'INC_DEF';
+    @tags = @{$self->{'tags'}}[0..$TAG_END];
+    my $num;
+    foreach $num (0 .. $#tags) {
+      $tags[$num] = $DEF_TAG[$num]  if $tags[$num] eq undef and not $inc_def;
+      $tags[$num] = $DEF{CURRENT}{TAGS}[$num] if $tags[$num] eq undef and $inc_def;
+    }
+  } elsif (ref($self) ne "Math::Fraction") {
+    my $set;
+    $set = 'CURRENT' unless $set = @_[0];
+    $set = 'BLANK'   unless exists $DEF{$set};
+    @tags = @{$DEF{$set}{TAGS}};
   }
   return @tags;
 }
 
 sub digits {
   my $self = shift;
-  return $DIGITS;
+  my $set;
+  $set = 'CURRENT' unless $set = @_[0];
+  $set = 'BLANK'   unless exists $DEF{$set};
+  return $DEF{$set}{DIGITS};
+}
+
+##
+# These mehods are used form managing default sets.
+
+sub sets {
+  my $self = shift;
+  return keys %DEF;
+}
+
+sub name_set {
+  shift; 
+  return $DEF{CURRENT}{NAME}  if not $_[0];
+  $DEF{CURRENT}{NAME} = $_[0] if     $_[0];
+}
+
+sub exists_set {
+  return exists $DEF{$_[1]};
+}
+
+sub use_set {
+  my $self = shift;
+  my $name = shift;
+  if (exists $DEF{$name} and not $DEF{$name}{READONLY}) {
+    $DEF{CURRENT} = $DEF{$name};
+    return $name;
+  } else {
+    return undef;
+  }
+}
+
+sub temp_set {
+  my $self = shift;
+  my $name = shift;
+  if (not $name) {
+    $ID++;
+    $name = "\cI\cD$ID";
+    $self->copy_set('CURRENT', $name);
+    $self->copy_set('DEFAULT', 'CURRENT');
+    return $name;
+  } else { #if $name;
+    my $return = $self->copy_set($name, 'CURRENT');
+    $self->del_set($name);
+    return $return
+  }
+}
+
+
+sub load_set {
+  my $self = shift;
+  if (exists $DEF{$_[0]}) {
+    $self->copy_set($_[0],'CURRENT') if exists $DEF{$_[0]};
+    return $_[0]
+  } else {
+    return undef;
+  }
+}
+
+sub save_set {
+  my $self = shift;
+  my $name;
+  $name = $DEF{CURRENT}{NAME} unless $name = shift;
+  ++$ID, $name = "\cI\cD:$ID" if not $name or $name eq 'RAND';
+  return $self->copy_set('CURRENT', $name) && $name;
+}
+
+sub copy_set {
+  shift;
+  my ($name1, $name2) = @_;
+  if ($DEF{$name2}{READONLY} or $name2 eq 'BLANK' or not exists $DEF{$name1}) {
+    return 0;
+  } else {
+    $DEF{$name2} = {};                         # kill any links from use;
+    $DEF{$name2}{TAGS} = [@{$DEF{$name1}{TAGS}}];
+    $DEF{$name2}{DIGITS} = $DEF{$name1}{DIGITS};
+    $DEF{$name2}{NAME} = $name2 unless $name2 eq 'CURRENT';
+    $DEF{$name2}{NAME} = $name1   if   $name2 eq 'CURRENT';
+    return 1;
+  }
+}
+
+sub del_set {
+  if (exists $DEF{$_[1]} and not $DEF{$_[1]}{SYSTEM}) {
+    delete $DEF{$_[1]};
+    return $_[1];
+  }
 }
 
 # All of the modify methods are not meant to return anything, they modify
@@ -224,20 +351,22 @@ sub modify {
 
   my $me = shift;
   my $self;
-  my @tags = @{$me}[2..3];
+  my @tags = @{$me->{'tags'}};
   $self = Math::Fraction->new(@_, @tags, @_);  # The extra @_ is their to override tags
-  foreach (0 .. $#{$self}) {$me->[$_]=$self->[$_]}
+  $me->{'frac'} = $self->{'frac'};
+  $me->{'tags'} = $self->{'tags'};
 }
 
 sub modify_digits {
   my $self = shift;
-  $DIGITS = shift;
+  $DEF{CURRENT}{DIGITS} = shift;
 }
 
 sub modify_reduce {
   my $me = shift;
   my $self = $me->reduce;
-  foreach (0 .. $#{$self}) {$me->[$_]=$self->[$_]}
+  $me->{'frac'} = $self->{'frac'};
+  $me->{'tags'} = $self->{'tags'};
 }
 
 
@@ -253,43 +382,68 @@ sub modify_den {
 
 sub modify_tag {
   my $self = shift;
-  if ($self eq "Math::Fraction") {
-    @DEF_TAGS = &_tags(@DEF_TAGS,@_);
+  my ($return, @return);
+  my $newtag;
+ foreach $newtag (@_) {
+  my $tagnum = &_tagnum($newtag);
+  if ($tagnum == -1) {
+    push @return, undef;
+  } elsif (ref($self) eq "Math::Fraction") {
+    my @frac = @{$self->{'frac'}};
+    my @tags = @{$self->{'tags'}};
+    my @newtags = &_tags(@tags,$newtag);
+    # Now transform the Fraction based on the new tag.
+    if ($tagnum == $SIZE) {
+      my $newtag = &_tag($SIZE, \@newtags);
+      @frac = map { "$_"+0 } @frac                if $newtag eq 'SMALL';
+      @frac = map { Math::BigInt->new($_) } @frac if $newtag eq 'BIG';
+    } elsif ($tagnum == $REDUCE) {
+      (undef, @frac) = &_reduce(@frac) if &_tag($REDUCE, \@newtags) eq 'REDUCE';
+    }
+    # Finally Modify the Fraction
+    $self->{'frac'} = \@frac; 
+    $self->{'tags'} = \@newtags;
   } else {  
-    my @frac = @{$self}[0..1];
-    my @tags = @{$self}[2..$#{$self}];
-    @tags = &_tags(@tags,@_);
-    $self->[2] =$tags[0];
-    $self->[3] =$tags[1];
+    $DEF{CURRENT}{TAGS}[$tagnum] = $newtag;
   }
+  push @return, $newtag;
+ }
+ return @return;
 }
-
+    
 # These methods are meant to be called with the overload operators.
 
 sub add {
-  my @frac1 = @{$_[0]};
-  my (@frac2, @frac3);
-  @frac2 = @{$_[1]}                               if ref($_[1]) eq "Math::Fraction";
-  @frac2 = (&_from_decimal($_[1]),'CONVERTED')    if ref($_[1]) ne "Math::Fraction";
-  my @tags = &_tags_preserve([@frac1],[@frac2]);
+  my @frac1 = @{$_[0]->{'frac'}};
+  my @tags1 = @{$_[0]->{'tags'}};
+  my (@frac2, @frac, @tags2, $frac);
+  my $skipauto = 0;
+  @frac2 = @{$_[1]->{'frac'}}, @tags2 = @{$_[1]->{'tags'}} if ref($_[1]) eq "Math::Fraction";
+  @frac2 = &_from_decimal($_[1]), $tags2[$INTERNAL] = 'CONVERTED' if ref($_[1]) ne "Math::Fraction";
+  my @tags = &_tags_preserve([@tags1],[@tags2]);
 
-  my $sign1 = &_simplify_sign(@frac1);
-  my $sign2 = &_simplify_sign(@frac2);
-
-  if (&_tag(1, \@tags) == 'NO_REDUCE') {
-    @frac3 = ($frac1[0]*$frac2[1]+$frac2[0]*$frac1[1],$frac1[1]*$frac2[1]);
-    @frac3 = (@frac3, @tags);
+ LOOP: {
+  if (&_tag($REDUCE, \@tags) eq 'NO_REDUCE') {
+    @frac = ($frac1[0]*$frac2[1]+$frac2[0]*$frac1[1],$frac1[1]*$frac2[1]);
   } else {
     # Taken from Knuth v2 (rev 2), p313.
     # It will always return a reduced fraction.
     my $gcd1 = &_gcd($frac1[1],$frac2[1]);
     my $tmp = $frac1[0]*($frac2[1]/$gcd1) + $frac2[0]*($frac1[1]/$gcd1);
     my $gcd2 = &_gcd($tmp,$gcd1);
-    @frac3 = ( $tmp/$gcd2, ($frac1[1]/$gcd1)*($frac2[1]/$gcd2) );
-    @frac3 = (@frac3, @tags, 'IS_REDUCED');
+    @frac = ( $tmp/$gcd2, ($frac1[1]/$gcd1)*($frac2[1]/$gcd2) );
+    $tags[$RED_STATE] = 'IS_REDUCED';
   }
-
-  return Math::Fraction->new(@frac3);
+  if ( (&_tag($AUTO, \@tags) eq 'AUTO') and (not $skipauto) and
+     ($tags[$SIZE] eq 'SMALL') and ($frac[0]=~/[eE]/ or $frac[1]=~/[eE]/) )
+  {
+    (@frac1[0..1], @frac2[0..1]) = map { Math::BigInt->new($_) } (@frac1, @frac2);
+    $tags[$SIZE] = 'BIG';
+    $skipauto = 1;
+    redo LOOP;
+  }
+ }
+  return Math::Fraction->new(@frac, @tags);
 }
 
 sub sub {
@@ -297,103 +451,186 @@ sub sub {
   $frac1 = Math::Fraction->new($frac1, 'CONVERTED')  if ref($frac1) ne "Math::Fraction";
   $frac2 = Math::Fraction->new($frac2, 'CONVERTED')  if ref($frac2) ne "Math::Fraction";
 
-  $frac2 = Math::Fraction->new($frac2->[0], -$frac2->[1], @{$frac2}[2..$#{$frac2}]);
+  $frac2 = Math::Fraction->new($frac2->{'frac'}[0], -$frac2->{'frac'}[1], @{$frac2->{'tags'}});
 
   return $frac1 + $frac2;
 }
 
 sub mul {
-  my @frac1 = @{$_[0]};
-  my (@frac2, @frac3);
-  @frac2 = @{$_[1]}                             if ref($_[1]) eq "Math::Fraction";
-  @frac2 = (&_from_decimal($_[1]),'CONVERTED')  if ref($_[1]) ne "Math::Fraction";
-  my @tags = &_tags_preserve([@frac1],[@frac2]);
-
-  if (&_tag(1, \@tags) == 'NO_REDUCE') {
-    @frac3 = ($frac1[0]*$frac2[0],$frac1[1]*$frac2[1], @tags);
+  my @frac1 = @{$_[0]{'frac'}};
+  my @tags1 = @{$_[0]{'tags'}};
+  my (@frac2, @frac, @tags2);
+  @frac2 = @{$_[1]->{'frac'}}, @tags2 = @{$_[1]->{'tags'}} if ref($_[1]) eq "Math::Fraction";
+  @frac2 = (&_from_decimal($_[1])), $tags2[$INTERNAL] = 'CONVERTED' if ref($_[1]) ne "Math::Fraction";
+  my @tags = &_tags_preserve([@tags1],[@tags2]);
+  my $skipauto = 0;
+ LOOP: {
+  if (&_tag($REDUCE, \@tags) eq 'NO_REDUCE') {
+    @frac = ($frac1[0]*$frac2[0],$frac1[1]*$frac2[1]);
   } else {
     my($gcd1, $gcd2)=(&_gcd($frac1[0],$frac2[1]),&_gcd($frac2[0],$frac1[1]));
-    $frac3[0] = ($frac1[0]/$gcd1)*($frac2[0]/$gcd2);
-    $frac3[1] = ($frac1[1]/$gcd2)*($frac2[1]/$gcd1);
-    @frac3 = (@frac3, @tags, 'IS_REDUCED');
+    $frac[0] = ($frac1[0]/$gcd1)*($frac2[0]/$gcd2);
+    $frac[1] = ($frac1[1]/$gcd2)*($frac2[1]/$gcd1);
+    $tags[$RED_STATE] =  'IS_REDUCED';
   }
-  return Math::Fraction->new(@frac3);
+  if ( (&_tag($AUTO, \@tags) eq 'AUTO') and (not $skipauto) and
+       ($tags[$SIZE] eq 'SMALL') and ($frac[0]=~/[eE]/ or $frac[1]=~/[eE]/) )
+  {
+    (@frac1[0..1], @frac2[0..1]) = map { Math::BigInt->new($_) } (@frac1, @frac2);
+    $tags[$SIZE] = 'BIG';
+    $skipauto = 1;
+    redo LOOP;
+  }
+ }
+  return Math::Fraction->new(@frac, @tags);
 }
 
 sub div {
   my ($frac1, $frac2) = ($_[$_[2]], $_[not $_[2]]);  # swap if needed
   $frac1 = Math::Fraction->new($frac1, 'CONVERTED')  if ref($frac1) ne "Math::Fraction";
   $frac2 = Math::Fraction->new($frac2, 'CONVERTED')  if ref($frac2) ne "Math::Fraction";
-         
-  $frac2 = Math::Fraction->new($frac2->[1], $frac2->[0], @{$frac2}[2..$#{$frac2}]);
+
+  $frac2 = Math::Fraction->new($frac2->{'frac'}[1], $frac2->{'frac'}[0], @{$frac2->{'tags'}});
       #Makes a copy of the fraction with the num and den switched.
 
   return $frac1 * $frac2;
 }
 
 sub pow {
-  my @frac1;
-  @frac1 = @{$_[$_[2]]}                             if ref($_[$_[2]]) eq "Math::Fraction";
-  @frac1 = (&_from_decimal($_[$_[2]]),'CONVERTED')  if ref($_[$_[2]]) ne "Math::Fraction";
+  my (@frac, @frac1, @tags1);
+  @frac1 = @{$_[$_[2]]->{'frac'}}, @tags1 = @{$_[$_[2]]->{'tags'}} if ref($_[$_[2]]) eq "Math::Fraction";
+  @frac1 = &_from_decimal($_[$_[2]])                       if ref($_[$_[2]]) ne "Math::Fraction";
   my $frac2;
   $frac2 = $_[not $_[2]]->decimal        if ref($_[not $_[2]]) eq "Math::Fraction";
   $frac2 = $_[not $_[2]]                 if ref($_[not $_[2]]) ne "Math::Fraction";
-  my @tags = @frac1[2..3];
+  my @tags = @tags1;
+  my $skipauto = 0;
 
-  my @frac3 = ($frac1[0]**$frac2,$frac1[1]**$frac2);
-  @frac3 = (@frac3, @tags );
-  return Math::Fraction->new(@frac3);
+ LOOP: { 
+  @frac = ($frac1[0]**$frac2,$frac1[1]**$frac2);
+
+  if ( (&_tag($AUTO, \@tags) eq 'AUTO') and (not $skipauto) and
+     ($tags[$SIZE] eq 'SMALL') and ($frac[0]=~/[eE]/ or $frac[1]=~/[eE]/) )
+  {
+    @frac1 = map { Math::BigInt->new($_) } @frac1;
+    $tags[$SIZE] = 'BIG';
+    $skipauto = 1;
+    redo LOOP;
+  }
+ }
+
+  return Math::Fraction->new(@frac, @tags);
 }
 
 sub sqrt {
   my $self = shift;
-  my @frac = @{$self}[0..1];
-  my @tags = @{$self}[2..$#{$self}];
+  my @frac = @{$self->{'frac'}};
+  my @tags = @{$self->{'tags'}};
   my $ans;
   if ( ref($frac[0]) ) {
-    $frac[0] = Math::BigFloat->new( Math::BigFloat::fsqrt($frac[0], $DIGITS) );
-    $frac[1] = Math::BigFloat->new( Math::BigFloat::fsqrt($frac[1], $DIGITS) );
-    @frac = (@frac, @tags);
+    $frac[0] = Math::BigFloat->new( Math::BigFloat::fsqrt($frac[0], $DEF{CURRENT}{DIGITS}) );
+    $frac[1] = Math::BigFloat->new( Math::BigFloat::fsqrt($frac[1], $DEF{CURRENT}{DIGITS}) );
   } else {
-    @frac = (sqrt($frac[0]) , sqrt($frac[1]), @tags);
+    @frac = (sqrt($frac[0]) , sqrt($frac[1]));
   }
-  return Math::Fraction->new(@frac);
+  return Math::Fraction->new(@frac, @tags);
 }
 
 
 sub abs {
   my $self = shift;
-  my @frac = @{$self}[0..1];
-  my @tags = @{$self}[2..3];
+  my @frac = @{$self->{'frac'}};
+  my @tags = @{$self->{'tags'}};
   return Math::Fraction->new(abs($frac[0]),abs($frac[1]),@tags,'IS_REDUCED');
 }
 
+sub cmp {
+  my @frac1 = @{$_[0]->{'frac'}};
+  my @tags1 = @{$_[0]->{'tags'}};
+  my (@frac2, @frac, @tags2, $x, $y);
+  @frac2 = @{$_[1]->{'frac'}}, @tags2 = @{$_[1]->{'tags'}} if ref($_[1]) eq "Math::Fraction";
+  @frac2 = &_from_decimal($_[1]), @tags2 = qw(CONVERTED)   if ref($_[1]) ne "Math::Fraction";
+  my @tags = &_tags_preserve([@tags1],[@tags2]);
+  if (&_tag($REDUCE, \@tags) == 'NO_REDUCE') {
+    $x = $frac1[0]*$frac2[1];
+    $y = $frac2[0]*$frac1[1];
+  } else {
+    my $gcd1 = &_gcd($frac1[1],$frac2[1]);
+    $x = $frac1[0]*($frac2[1]/$gcd1);
+    $y = $frac2[0]*($frac1[1]/$gcd1);
+  }
+  return $x <=> $y;
+}
 
 # These function are that functions and not ment to be used as methods
 
 sub _fix_num {
   my $tagsref = shift;
-  my @return;
-  if (&_tag(2, $tagsref) eq 'BIG') {
-    my $num;
-    foreach $num (@_) {
-      my $ans = Math::BigFloat->new($num);
-      push (@return, $ans);
+  my @return = @_;
+  my $auto = &_tag($AUTO, $tagsref) eq 'AUTO';
+  $tagsref->[$SIZE] = &_tag($SIZE, $tagsref); 
+  $tagsref->[$SIZE] = 'SMALL'  if $auto;
+  my $num;
+  my $decimal = 0;
+  foreach $num (@return) {
+    if (ref($num) eq "Math::BigFloat") {
+      $tagsref->[$SIZE] = 'BIG' unless $auto;
+      $decimal = 1;
+    } elsif (ref($num) eq "Math::BigInt") {
+      $tagsref->[$SIZE] = 'BIG' unless $auto;
+    } elsif (ref($num)) {
+      # do nothing
+    } elsif ($num =~ /[\.\e\E]/) {
+      $decimal = 1;
     }
-  } else {
-    @return = @_
+    if ($auto) {
+      $num =~ /[\+\-]?\s*0*([0-9]*)\s*\.?\s*([0-9]*)0*/;
+      my $length = length($1)+length($2);
+      $tagsref->[$SIZE] = 'BIG' if $length > 15;
+    }
   }
-  return @return;
+  if ($tagsref->[$SIZE] eq 'BIG') {
+    @return = map {Math::BigInt->new("$_")}   @return  if not $decimal;
+    @return = map {Math::BigFloat->new("$_")} @return  if     $decimal;
+  }
+  if ($tagsref->[$SIZE] eq 'SMALL' and $auto) {
+    @return = map {"$_"+0} @return;
+  }
+  return ($decimal, @return);
+}
+
+sub _fix_auto {
+  my $direction = shift;
+  my $tagsref = shift;
+  my @return = @_;
+  $tagsref->[$SIZE] = 'SMALL';
+  my $num;
+  foreach $num (@return) {
+    $num =~ /[\+\-]?\s*0*([0-9]*)\s*\.?\s*([0-9]*)0*/;
+    my $length = length($1)+length($2);
+    $tagsref->[$SIZE] = 'BIG' if $length > 15;
+  }
+  if ($tagsref->[$SIZE] eq 'BIG' and $direction eq 'BOTH') {
+    @return = map {Math::BigInt->new("$_")} @return;
+  } elsif ($tagsref->[$SIZE] eq 'SMALL') {
+    @return = map {"$_"+0} @return;
+  }
+  return (@return);
 }
 
 sub _is_decimal {
-  return $_[0] =~ /^\s*[\+\-0-9e\.]+\s*$/;
+  my $return = $_[0] =~ /^\s*[\+\-0-9eE\.]+\s*$/;
+  return $return;
 }
 
 sub _reduce {
   my @frac = @_;
   my $gcd = &_gcd(@frac);
-  return ($frac[0]/$gcd, $frac[1]/$gcd);
+  if ($gcd == 1 ) {
+    return (0, @frac)
+  } else {
+    return (1, $frac[0]/$gcd, $frac[1]/$gcd);
+  }
 }  
 
 sub _simplify_sign {
@@ -413,6 +650,7 @@ sub _tags {
     my ($num, $value) = @{$TAGS{$_}};
     $return[$num] = $value;
   }
+
   return @return;
 }
 
@@ -420,22 +658,32 @@ sub _tags {
 sub _tag {
   my $item = shift;
   my $return;
-  foreach (@_, \@DEF_TAGS) {
-    last if $return = ${$_}[$item];
+  my $ref;
+  foreach $ref (@_, $DEF{CURRENT}{TAGS}) {
+    last if $return = ${$ref}[$item];
   }
   return $return
 }
 
-sub _tags_preserve {
-  my @frac1 = @{$_[0]};
-  my @frac2 = @{$_[1]};
-  my @tags;
-  if ($frac1[2] eq 'CONVERTED') {
-    @tags = @frac2[2 .. $#frac2];
-  } elsif ($frac2[2] eq 'CONVERTED') {
-    @tags = @frac1[2.. $#frac1];
+sub _tagnum {
+  my $item = shift;
+  if (exists $TAGS{$item}) {
+    return $TAGS{$item}[0];
   } else {
-    @tags = map {$frac1[$_] eq $frac2[$_] and $frac1[$_]} (2 .. $#frac1) ;
+    return -1;
+  }
+}
+
+sub _tags_preserve {
+  my @tags1 = @{$_[0]};
+  my @tags2 = @{$_[1]};
+  my @tags;
+  if ($tags1[$INTERNAL] eq 'CONVERTED') {
+    @tags = @tags2;
+  } elsif ($tags2[$INTERNAL] eq 'CONVERTED') {
+    @tags = @tags1;
+  } else {
+    @tags = map {$tags1[$_] eq $tags2[$_] and $tags1[$_]} (0 .. $#tags1) ;
   }
   return @tags;
 }
@@ -468,8 +716,8 @@ sub _gcd {
 
 sub _de_decimal {
     my @frac = @_;
-    my $big = &_tag(2, $_[2]);
     my @return;
+    my $big = &_tag($SIZE, $_[2]);
     my (@int_part, @decimal_part);
     if ($big eq "BIG") {
       my @digits = (1,1);
@@ -491,21 +739,35 @@ sub _de_decimal {
 }
 
 sub _from_decimal {
-  my $decimal = shift;
+  my $decimal = shift;       # the decimal (1.312671267127)
   my $big = 'BIG' if ref($decimal);
-  my ($repeat, $pat, $pat_len);
-  my ($factor, $int_factor, $whole_num, $whole_num_len);
-  my ($sign, $int_part, $decimal_part, $decimal_part_len);
-  my ($beg_part_len,$beg_part, $other_part, $other_part_len);
+  my ($repeat);              # flag to keep track if it is repeating or not
+  my ($sign);
+  my ($factor, $int_factor);
+  my ($factor2);
+  my ($whole_num, $whole_num_len);
+  my ($int_part);                        # integer part (1)
+  my ($decimal_part, $decimal_part_len); # decimal part (312671267127)
+  my ($decimal_part2);               # decimal part - last bit \/ (312671267)
+  my ($pat, $pat_len);               # repeating pat (1267)
+  my ($pat_lastb);                   # last bit of repeating pat (127)
+  my ($beg_part, $beg_part_len);       # non-repeating part (3)
+  my ($other_part, $other_part_len);   # repeating part     (1267126712127)
   my ($frac1, $frac2, $frac3);
 
+  my $rnd_mode = $Math::BigFloat::rnd_mode;  # to avoid problems with incon.
+  $Math::BigFloat::rnd_mode = 'trunc';       # rounding
+
+  $decimal = "$decimal";
   $decimal =~ s/\s//g;
   ($sign, $int_part, $decimal_part) = $decimal =~ /([\+\-]?)\s*(\d*)\.(\d+)$/;
   $sign .= '1';
   $decimal_part_len = length($decimal_part);
   $int_part = "" unless $int_part;
-  $factor = 10**length($decimal_part);
-  $int_factor = 10**length($int_part);
+  $factor = '1'.'0'x(length($decimal_part));
+  $factor = Math::BigFloat->new($factor) if $big;
+     # Make it a BigFloat now to simplfy latter
+  $int_factor = '1'.'0'x(length($int_part));
   $beg_part_len = 0;
  OuterBlock:
   while ($beg_part_len < $decimal_part_len) {
@@ -524,29 +786,38 @@ sub _from_decimal {
 
         if ( $length <= $pat_len) {
           last unless $length;
-          my $sub_pat = substr($pat, 0, $length);
-          $repeat=1 ,last OuterBlock if $sub_pat eq $_;
-          if ($sub_pat eq $_ - 1) {
-           # this is needed to see if it really is the repeating fracton
-           # we intented it to be.  If we don't do this 1.1212 would become
-           # 1120/999 = 1.1211211211.
-           # The first three lines converts it to a fraction and the
-           # rests tests it to the actual repeating decimal/
-           # The NO_REDUCE flag is their to save time as reducing large
-           # fraction can take a bit of time which is unnecessary as we will
-           # be converting it to a decimal.
-          $frac1 = Math::Fraction->new($beg_part+0,10**$beg_part_len, 'NO_REDUCE', $big);
-          $frac2 = Math::Fraction->new($pat+0,"9"x$pat_len*10**$beg_part_len, 'NO_REDUCE', $big);
-          $frac3 = $frac1 + $frac2;
-          my $what_i_get = $frac3->decimal;
-          $decimal_part = Math::BigFloat->new($decimal_part) if $big;
-          my $what_i_should_get = (($decimal_part-1)/$factor)."$pat"x($DIGITS+20);
-           # the -1 is to get rid of the rounding thus .6667 would
-           # become .6666 and then we tack on what the apparent pattern
-           # should be until perl will no longer care (ie out of its
-           # floating point presion range)
-#          print "what: $what_i_get $what_i_should_get ($int_part)\n";
-          $repeat=1, last OuterBlock if $what_i_get == $what_i_should_get;
+          $pat_lastb = substr($pat, 0, $length);
+          $repeat=1 ,last OuterBlock if $pat_lastb eq $_;
+          if ($pat_lastb eq $_ - 1) {
+             # this is needed to see if it really is the repeating fracton
+             # we intented it to be.  If we don't do this 1.1212 would become
+             # 1120/999 = 1.1211211211.
+             # The first three lines converts it to a fraction and the
+             # rests tests it to the actual repeating decimal/
+             # The NO_REDUCE flag is their to save time as reducing large
+             # fraction can take a bit of time which is unnecessary as we will
+             # be converting it to a decimal.
+            $decimal_part2 = substr($decimal_part, 0, $decimal_part_len - length($pat_lastb));
+            $factor2 = '1'.'0'x(length($decimal_part2));
+            $frac1 = Math::Fraction->new('0'.$beg_part,"1"."0"x$beg_part_len, 'NO_REDUCE', $big);
+            $frac2 = Math::Fraction->new('0'.$pat,"9"x$pat_len."0"x$beg_part_len, 'NO_REDUCE', $big);
+            $frac3 = $frac1 + $frac2;
+            my $what_i_get = $frac3->decimal;
+            my $places = length($what_i_get);
+            my $decimal_p_tmp = $decimal_part2                      if not $big;
+               $decimal_p_tmp = Math::BigFloat->new($decimal_part2) if  $big;
+            my $what_i_should_get = (($decimal_p_tmp)/$factor2)."$pat"x($places);
+              # The rest of this is doing nothing more but trying to compare
+              # the what_i_get and what_i_should_get but becuse the stupid
+              # BigFloat module is so pragmentic all this hopla is nessary
+            $what_i_should_get = Math::BigFloat->new($what_i_should_get)           if $big;
+            $what_i_should_get = $what_i_should_get->fround(length($what_i_get)-1) if $big;
+            $what_i_should_get = Math::BigFloat->new($what_i_should_get)           if $big;
+              # ^^ Needed because the dam fround method does not return a
+              #    BigFloat object!!!!!!
+            my $pass = "$what_i_get" eq "$what_i_should_get" if $big;
+               $pass = $what_i_get == $what_i_should_get  if  not $big;
+            $repeat=1, last OuterBlock if ($pass);
           }
         }
       }
@@ -555,13 +826,15 @@ sub _from_decimal {
   }
 
   if ($repeat) {
-    $frac1 = Math::Fraction->new($beg_part+0,10**$beg_part_len, $big);
-    $frac2 = Math::Fraction->new($pat+0,"9"x$pat_len*10**$beg_part_len, $big);
+    $frac1 = Math::Fraction->new('0'.$beg_part,"1"."0"x$beg_part_len, $big);
+    $frac2 = Math::Fraction->new('0'.$pat,"9"x$pat_len."0"x$beg_part_len, $big);
+    my $int_part = Math::Fraction->new('0'.$int_part, 1, 'BIG') if $big;
     $frac3 = $sign*($int_part + $frac1 + $frac2);
-    return @{$frac3}[0 .. 1];
+    return @{$frac3->{frac}};
   } else {
-    return ($decimal*$factor,$factor, $big);
+    return ($decimal*$factor, $factor, $big);
   }
+  $Math::BigFloat::rnd_mode = $rnd_mode;   # set it back to what it was.
 }
 
 1;

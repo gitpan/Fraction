@@ -1,9 +1,9 @@
-Math::Fraction v.3a
+Math::Fraction v.4a
 
 Purpose: To Manipulate Exact Fractions
 
 Copyright 1997 by Kevin Atkinson (kevina@cark.net)
-Version .3a  (8 Mar 1997)
+Version .4a  (24 Mar 1997)
 Alpha Release: Not Very Well Tested
 Developed with Perl v 5.003_37 for Win32.
 Has been testing on Perl Ver 5.003 on a solaris machine.
@@ -33,11 +33,15 @@ frac(FRACTION, TAGS) || Math::Fraction->new(FRACTION, TAGS)
    REDUCE|NO_REDUCE|DEF_REDUCE
      Controls the automatic reduction of fraction after operations are
      performed on it.
+   AUTO|NO_AUTO|DEF_AUTO
+     Set rether to automatically convert between BIG and SMALL as needed
+     see notes.
    SMALL|BIG|DEF_BIG
-     Set whether to use Arbitrary-Length numbers using the Math::BigInt and
-     Math::BigFloat package. (Not the ** operator will not work however
-     due to limitations of the packages.)
-   (Note the default tags are NORMAL REDUCE and SMALL)
+     When the AUTO tag is NOT set it will set whether to use Arbitrary-Length
+     numbers using the Math::BigInt and Math::BigFloat package. (Not the **
+     operator will not work however due to limitations of the packages.)
+     When the AUTO tag is set these tags will have NO effect.
+   (Note the default tags are NORMAL REDUCE AUTO and SMALL)
 
 Methods:
  
@@ -71,7 +75,7 @@ Methods:
   modify_den(Denominator) - modified the fraction's denominator.
   modify_tag(TAGS) - modifies the fraction tags.
 
-The is_tag, tags, digits, and modify_tags methods can be used on the class its
+The is_tag, tags, and modify_tags methods can be used on the class its
   self to get at or modify the default tags.
 
 The following methods will always modify or read the Class defaults
@@ -81,9 +85,36 @@ The following methods will always modify or read the Class defaults
     Math::BigFloat will decide.
   modify_digits(NUM)
 
+The following methods are met to manage default sets and will always
+work on the Class defaults.
+
+  sets - returns a list of all the sets;
+  name_set - return the name of the current set.
+  name_set(NAME) - name the current set
+  save_set - saves the current sent based on its name as given above
+  save_set(NAME) - save the current set as NAME
+  save_set(RAND) - save the current set using a unique name
+  load_set(NAME) - loads a set.
+  copy_set(NAME_ORG, NAME_NEW) - copies a set. Returns true if successful.
+  del_set(NAME) - deletes a set.
+  exists_set(NAME) - returns true if the set exists.
+  use_set(NAME) - uses a set, that is any changes you make to the used set
+     will also change the original set, like a link.
+  temp_set - loads a temp set and returns a unique id you need to keep.
+  temp_set(ID) - restores the original set based on the is you should of kept.
+
+  (Unless otherwise specified all the set methods will return the name of
+   the set being worked on if it was successful, false otherwise)
+
+  tags(SET) - lists all the tags in SET.
+  is_tag(TAG, SET) - returns true if TAG exists in SET
+  digits(SET) - returns what digits is set to in SET;
+
 Also the following operations have been overridden and will return a
-fraction
+fraction:
   +  -  /  *  +  +=  -=  *=  /=  ++  -- abs
+The following operations have also been overridden:
+ <=> == != < <= > >= 
 The following operations have also been overridden however they may spit
 out nasty fractions.
   ** sqrt
@@ -92,6 +123,27 @@ will be called and when try to access it as a number the decimal method
 will be called.
 This means that almost all other operations will work however some might
 return decimals like the sin and cos;
+
+Notes on AUTO tag:
+  With the AUTO tag set Fractions will be converted between SMALL and
+  BIG as needed.  The BIG and SMALL tag will be *ignorded* unless you
+  explicitly specify NO_AUTO in auto to control how the fraction is
+  stored.
+  When you give it a number it will decide if it is small enough to be
+  stored as a SMALL or if the fraction needs to converted to BIG.
+  However, in order for it to recognize a big fraction the number needs to
+  be in quotes, thus frac(7823495784957895478,781344567825678454) will still
+  be stored as a small with some of the digits lost.
+  When calculating to SMALL numbers that results in a number that is to
+  big for SMALL the calculation is done AGAIN but this time with BIG
+  numbers (so that it will calculate all the digits correctly) and the
+  new fraction will become a BIG.
+  When calculating to BIG numbers that results in a number that is small
+  enough to be a SMALL the new fraction will become a SMALL.
+  Normally, the AUTO tag will save time as calculating with BIG numbers
+  can be quite time consuming however it might slow thinks down if it
+  constantly converts between the two thus in some cases it may be wise to
+  turn it off.
 
 Notes and Bugs:
  It won't run with -w switch if anybody can help figure out why I would

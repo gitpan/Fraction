@@ -30,3 +30,17 @@ Revision History:
    Renames to Math::Fraction
    Added Default tags
    Added Using arbitrary sized numbers.
+.4 (24 March 97)
+  Changed the structure of a Fraction object to now have a 'frac' part and a
+    'tags' part.
+  Fixed the _from_decinal sub to work properly recognize large repeating
+     floats properly.
+  Added support for default sets so that functions can have the own private
+     set of default values.
+  Added a new AUTO which when set will convert the fraction from SMALL
+     to BIG as needed.
+  Fixed the modify_tag so that it will convert the fraction to reflect the
+     new tags.
+  And a lot of other minor bugs fixed.
+
+
