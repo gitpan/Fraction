@@ -1,0 +1,32 @@
+Math::Fraction
+Revision History:
+.1a (1 March 1997) Original Release
+.2a (2 March 1997) Many Internal Changes:
+       Fixed reduce method so it no longer needs a list of primes after
+         discovering a method in the BigInt module
+       Modified + and * routines to work with as small numbers of possible
+         after reading the fraction section of Knuth's "The Art of Computer
+         Programming" v2 book that I checked out thanks to the reference
+         in the BigInt module
+       Modified - and / routines to with take the negative or receptacle 
+         of the second fraction and then use the + and - method respectively
+       (And when I was browsing the list I also discovered bigrat.pl, but
+         not a BigRat.pm.  Oh well I guess I reinvent the real a bit but
+         I think I created a better one.  I plan to eventually have it is
+         the BigInt package to work with arbitrary size fractions.)
+       Changed the behavior of the MIXED method slightly so that it will
+         display "8/9" instead of "0 8/9"
+       Fixed it so that all the internal functions calls will return list
+         instead of fraction objects, simplifies things internally
+       Created a separate internal reduce function that the reduce method
+         calls and created a separate internal function to simplify signs.
+         Also fixed it so all new fractions will automatically have their signs
+         simplified (ie 1/-2 will become -1/2 and -1/-2 will become 1/2);
+       And probably a few more that I forgot to mention.
+.21a (3 March 97) Fixed the strange decimal conversion behavior.
+.211a (3 Match 97) Fixed % by zero bug
+.22 (3 March 97) Added demo a demo subroutine to the test script.
+.3 (8 March 97) First Version to be Uploaded to CPAN.
+   Renames to Math::Fraction
+   Added Default tags
+   Added Using arbitrary sized numbers.

@@ -1,0 +1,30 @@
+This is Math::Fraction v.3a
+
+Purpose: To Manipulate Exact Fractions
+
+Copyright 1997 by Kevin Atkinson (kevina@cark.net)
+Version .3a  (8 Mar 1997)
+Alpha Release: Not Very Well Tested
+Developed with Perl v 5.003_37 for Win32.
+Has been testing on Perl Ver 5.003 on a solaris machine.
+
+This program is ment to replace the old bigrat perl library.  It can do
+everthing it can do and a lot more.
+
+By using this software you have become an Alpha tester.  By becoming an
+Alpha tester you have agreed to give be some sort of feedback.
+
+This is my first real attempt at writing a Perl Module and at
+Object-Oriented Programming. (Although I know this is not a true-true
+Object-Oriented Module as I cheated a little). I mainly wrote it to
+teach my self how to program Object-Oriently in Perl and for the challenge.
+
+If you know of any faster or simpler way of doing any this please let me
+know.
+
+To test the module out run the fraction.pl program provided.  Type
+demo to see a small demonstration of its features.
+
+Because it is still in Alpha state their is not formal way to install it.
+It use it simply unpack the tar file and run it from their.
+

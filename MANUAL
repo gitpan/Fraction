@@ -1,0 +1,99 @@
+Math::Fraction v.3a
+
+Purpose: To Manipulate Exact Fractions
+
+Copyright 1997 by Kevin Atkinson (kevina@cark.net)
+Version .3a  (8 Mar 1997)
+Alpha Release: Not Very Well Tested
+Developed with Perl v 5.003_37 for Win32.
+Has been testing on Perl Ver 5.003 on a solaris machine.
+
+Usage:
+frac(FRACTION, TAGS) || Math::Fraction->new(FRACTION, TAGS)
+ ex: $f1=frac(2,3); $f2=frac(7,3,MIXED); $f3=frac("-10 3/4");
+
+ FRACTION can equal any of the following
+   (Numerator, Denominator)          
+   (Number, Numerator, Denominator)
+   Decimal
+   "Numerator/Denominator"         
+   "Number Numerator/Denominator"
+      Any of these numbers can be any real number however if you
+      enter in negative numbers in anything but the First Number for
+      the Mixed (3 numbers) the negative will be ignored.
+ TAGS can equal 0, one or more of the following
+   NORMAL|MIXED|MIXED_RAW|DEF_MIXED
+     Controls How the fraction is displayed,
+           NORMAL will display it in the #/form
+           MIXED_RAW will display in the #/form;
+           MIXED is the same as the above but if one part is equal to 0
+              it will leave it off.
+           DEF_MIXED will let it be what ever the default value is at the
+              time
+   REDUCE|NO_REDUCE|DEF_REDUCE
+     Controls the automatic reduction of fraction after operations are
+     performed on it.
+   SMALL|BIG|DEF_BIG
+     Set whether to use Arbitrary-Length numbers using the Math::BigInt and
+     Math::BigFloat package. (Not the ** operator will not work however
+     due to limitations of the packages.)
+   (Note the default tags are NORMAL REDUCE and SMALL)
+
+Methods:
+ 
+  reduce - returns a reduced fraction but leaves the original object
+    untouched.
+  string(NORMAL|MIXED|MIXED_RAW) - returns the fraction as a string.
+    if no parameters are given the objects default display method
+    will be used.
+  decimal|num - returned the decimal value of the fraction
+  list|list(MIXED) - returns a list containing the fraction if MIXED is
+    used than a 3 item list is returned.
+  is_tag - returns 1 is that tag exists in the fraction undef if is set to
+    the default -1 otherwise
+  is_tag(INC_DEF) - returns 1 is that tag exists in the fraction -1 if
+    is tag does not exist but the default is set to that, 0 otherwise.
+  tags - returns a list of the objects tags
+  tags(INC_DEF) - returns a list of the objects tags if a particular tag
+    is set to read a default the default tag is returned instead.
+
+  (Note: all of the above methods may all be exported so that they
+  can be used as functions with a fraction as their first parameter. The
+  string, decimal|num functions can be imported with the tag STR_NUM
+  instead of having to list each one.)
+
+  modify - modifies the object.  Works almost the same as the new method
+    but it doesn't return anything and preserves the objects tags unless
+    overridden by new entries
+  modify_reduce - same as reduce but it modifies the object instead of
+    returning a fraction.
+  modify_num(Numerator) - modifies the fraction's numerator.
+  modify_den(Denominator) - modified the fraction's denominator.
+  modify_tag(TAGS) - modifies the fraction tags.
+
+The is_tag, tags, digits, and modify_tags methods can be used on the class its
+  self to get at or modify the default tags.
+
+The following methods will always modify or read the Class defaults
+
+  digits - returns the default number of digests to return when doing
+    floating point operations with BIG numbers, if set to undef 
+    Math::BigFloat will decide.
+  modify_digits(NUM)
+
+Also the following operations have been overridden and will return a
+fraction
+  +  -  /  *  +  +=  -=  *=  /=  ++  -- abs
+The following operations have also been overridden however they may spit
+out nasty fractions.
+  ** sqrt
+Whenever you try to access a fraction as a string the string method
+will be called and when try to access it as a number the decimal method
+will be called.
+This means that almost all other operations will work however some might
+return decimals like the sin and cos;
+
+Notes and Bugs:
+ It won't run with -w switch if anybody can help figure out why I would
+ appreciate it.
+
