@@ -3,18 +3,19 @@ package Math::Fraction;
 # Purpose: To Manipulate Exact Fractions
 #
 # Copyright 1997 by Kevin Atkinson (kevina@cark.net)
-# Version .4a  (24 Mar 1997)
-# Alpha Release: Not Very Well Tested
-# Developed with Perl v 5.003_37 for Win32.
-# Has been testing on Perl Ver 5.003 on a solaris machine.
+# Version .51b  (18 Dec 1997)
+# Beta Release
+# Originally Developed with Perl v 5.003_37 for Win32.
+# Has been testing on Perl Ver 5.003 on a solaris machine and Perl 5.004
+# on Windows 95
+# Built on a Linux 2 machine with perl v5.003
 #
-# By using this software you have become an Alpha tester.  By becoming an
-# Alpha tester you have agreeded to give be some sort of feedback.
-#
-# See the files MANUAL and README for more information
+# Please send me feedback at kevina@clark.net
+
+use vars qw($VERSION @ISA @EXPORT);
 
 require Exporter;
-$VERSION = ".3";
+$VERSION = ".51";
 @ISA = qw(Exporter);
 @EXPORT = qw(frac);
 @EXPORT_OK = qw(reduce string decimal num list is_tag);
@@ -36,7 +37,7 @@ use overload
    "sqrt"=> "sqrt",
    "<=>" => "cmp",
    '""'  => "string",
-   "0+"  => "decimal";
+   "0+"  => "decimal",
    "fallback" => 1;
 
 my %DEF = (
@@ -230,7 +231,7 @@ sub tags {
   my $self = shift;
   my @tags;
   if (ref($self) eq "Math::Fraction") {
-    my $inc_def = 1 if @_[0] eq 'INC_DEF';
+    my $inc_def = 1 if $_[0] eq 'INC_DEF';
     @tags = @{$self->{'tags'}}[0..$TAG_END];
     my $num;
     foreach $num (0 .. $#tags) {
@@ -239,7 +240,7 @@ sub tags {
     }
   } elsif (ref($self) ne "Math::Fraction") {
     my $set;
-    $set = 'CURRENT' unless $set = @_[0];
+    $set = 'CURRENT' unless $set = $_[0];
     $set = 'BLANK'   unless exists $DEF{$set};
     @tags = @{$DEF{$set}{TAGS}};
   }
@@ -249,7 +250,7 @@ sub tags {
 sub digits {
   my $self = shift;
   my $set;
-  $set = 'CURRENT' unless $set = @_[0];
+  $set = 'CURRENT' unless $set = $_[0];
   $set = 'BLANK'   unless exists $DEF{$set};
   return $DEF{$set}{DIGITS};
 }
@@ -824,13 +825,12 @@ sub _from_decimal {
     }
     $beg_part_len++;
   }
-
   if ($repeat) {
     $frac1 = Math::Fraction->new('0'.$beg_part,"1"."0"x$beg_part_len, $big);
     $frac2 = Math::Fraction->new('0'.$pat,"9"x$pat_len."0"x$beg_part_len, $big);
-    my $int_part = Math::Fraction->new('0'.$int_part, 1, 'BIG') if $big;
+    $int_part = Math::Fraction->new('0'.$int_part, 1, 'BIG') if $big;
     $frac3 = $sign*($int_part + $frac1 + $frac2);
-    return @{$frac3->{frac}};
+    return @{$frac3->{'frac'}};
   } else {
     return ($decimal*$factor, $factor, $big);
   }
@@ -838,3 +838,540 @@ sub _from_decimal {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Math::Fraction - To Manipulate Exact Fractions (v.51b, Beta Release)
+
+=head1 SYNOPSIS
+
+    use Math::Fraction;
+
+    $a = frac(1,2); $b = frac(6,7);
+
+    print "$a + $b = ", $a + $b, "$a * $b = ", $a * $b;
+    print $a->num;
+
+=head1 DESCRIPTION
+
+This program is meant to replace the old bigrat perl library.  It can do
+everything it can do and a lot more.
+
+Some of its features include:
+
+=over 4
+
+=item *
+
+Being able to add, subtract, multiply, and divide, among other things
+just like you would normal numbers that's to the overload module.
+
+=item *
+
+Being able to convert a decimal, including repeating ones, into a
+fraction.  For example, 1.142857142857 would become 8/7.
+
+=item *
+
+Being able to control how the fraction is displayed.  For example
+8/7 verses 1 1/7
+
+=item *
+
+Being able to use arbitrary size numbers in the numerator and the
+denominator.
+
+=item *
+
+Being able to covert between SMALL (using normal floats/integers) and
+BIG (using arbitrary size floats/integers) as needed so you do not have
+to worry about it. (New as of ver .4a)
+
+=item *
+
+Being able to have multiple default sets so that a function can modify
+the defaults with out effecting other functions (New as of ver .4a)
+
+=back
+
+=head2 Usage
+
+ frac(FRACTION, TAGS) || Math::Fraction->new(FRACTION, TAGS)
+ ex $f1=frac(2,3); $f2=frac(7,3,MIXED); $f3=frac("-10 3/4");
+
+FRACTION can equal any of the following:
+
+=over 4
+
+=item (Numerator, Denominator)
+
+=item (Number, Numerator, Denominator)
+
+=item Decimal
+
+=item "Numerator/Denominator"
+
+=item "Number Numerator/Denominator"
+
+=back
+
+Any of these numbers can be any real number however if you
+enter in negative numbers in anything but the First Number for
+the Mixed (3 numbers) the negative will be ignored.
+
+TAGS can equal 0, one or more of the following
+
+=over 4
+
+=item NORMAL|MIXED|MIXED_RAW|DEF_MIXED
+
+Controls How the fraction is displayed:
+
+=over 8
+
+=item NORMAL
+
+display it in the #/form
+
+=item MIXED_RAW
+
+display in the #/form;
+
+=item MIXED
+
+the same as the above but if one part is equal to 0 it will leave it off.
+
+=item DEF_MIXED
+
+will let it be what ever the default value is at the time
+
+=back
+
+=item  REDUCE|NO_REDUCE|DEF_REDUCE
+
+Controls the automatic reduction of fraction after operations are
+performed on it.
+
+=item AUTO|NO_AUTO|DEF_AUTO
+
+Set rether to automatically convert between BIG and SMALL as needed
+see L<Notes on the AUTO tag>.
+
+=item SMALL|BIG|DEF_BIG
+
+When the AUTO tag is NOT set it will set whether to use Arbitrary-Length
+numbers using the Math::BigInt and Math::BigFloat package. (Not the **
+operator will not work however due to limitations of the packages.)
+When the AUTO tag is set these tags will have NO effect.
+(Note the default tags are NORMAL REDUCE AUTO and SMALL)
+
+=back
+
+=head2 Methods
+
+=over 4
+
+=item reduce
+
+returns a reduced fraction but leaves the original object untouched.
+
+=item string(NORMAL|MIXED|MIXED_RAW)
+
+returns the fraction as a string.
+if no parameters are given the objects default display method
+will be used.
+
+=item decimal|num
+
+returned the decimal value of the fraction
+
+=item list|list(MIXED)
+
+returns a list containing the fraction if MIXED is
+used than a 3 item list is returned.
+
+=item is_tag
+
+returns 1 is that tag exists in the fraction undef if is set to the
+default -1 otherwise
+
+=item is_tag(INC_DEF)
+
+returns 1 is that tag exists in the fraction -1 if
+is tag does not exist but the default is set to that, 0 otherwise.
+
+=item tags
+
+returns a list of the objects tags
+
+=item tags(INC_DEF)
+
+returns a list of the objects tags if a particular tag
+is set to read a default the default tag is returned instead.
+
+=back
+
+All of the above methods may all be exported so that they
+can be used as functions with a fraction as their first parameter. The
+string, decimal|num functions can be imported with the tag STR_NUM
+instead of having to list each one.
+
+=over 4
+
+=item modify
+
+modifies the object.  Works almost the same as the new method
+but it doesn't return anything and preserves the objects tags unless
+overridden by new entries
+
+=item modify_reduce
+
+same as reduce but it modifies the object instead of
+returning a fraction.
+
+=item modify_num(Numerator)
+
+modifies the fraction's numerator.
+
+=item modify_den(Denominator)
+
+modified the fraction's denominator.
+
+=item modify_tag(TAGS)
+
+modifies the fraction tags.
+
+=back
+
+The is_tag, tags, and modify_tags methods can be used on the class its
+self to get at or modify the default tags.
+
+The following methods will always modify or read the Class defaults
+
+=over 4
+
+=item digits
+
+returns the default number of digests to return when doing
+floating point operations with BIG numbers, if set to undef 
+Math::BigFloat will decide.
+
+  modify_digits(NUM)
+
+=back
+
+=head2 Dafault Sets
+
+Default sets are way of modifying the defaults with out effecting
+other functions.  Functions that relay on the default values or modify the
+default should start with a C<$set_id = temp_set>
+and end with a C<temp_set($set_id)>.
+
+See L<"EXAMPLES"> for examples of how default sets work.
+
+The following methods are met to manage default sets and will always
+work on the Class defaults.
+
+=over 4
+
+=item sets
+
+returns a list of all the sets;
+
+=item name_set
+
+return the name of the current set.
+
+=item name_set(NAME)
+
+name the current set
+
+=item save_set
+
+saves the current sent based on its name as given above
+
+=item save_set(NAME)
+
+save the current set as NAME
+
+=item save_set(RAND)
+
+save the current set using a unique name
+
+=item load_set(NAME)
+
+loads a set.
+
+=item copy_set(NAME_ORG, NAME_NEW)
+
+copies a set. Returns true if successful.
+
+=item del_set(NAME)
+
+deletes a set.
+
+=item exists_set(NAME)
+
+returns true if the set exists.
+
+=item use_set(NAME)
+
+uses a set, that is any changes you make to the used set
+will also change the original set, like a link.
+
+=item temp_set
+
+loads a temp set using the default default values
+and returns a unique id you need to keep.
+
+=item temp_set(ID)
+
+restores the original set based on the id you should of kept.
+
+=back
+
+Unless otherwise specified all the set methods will return the name of
+the set being worked on if it was successful, false otherwise
+
+=over 4
+
+=item tags(SET)
+
+lists all the tags in SET.
+
+=item is_tag(TAG, SET)
+
+returns true if TAG exists in SET
+
+=item digits(SET)
+
+returns what digits is set to in SET;
+
+=back
+
+=head2 Overloaded Operators
+
+The following operations have been overridden and will return a
+fraction:
+
+  +  -  /  *  +  +=  -=  *=  /=  ++  -- abs
+
+The following operations have also been overridden:
+
+ <=> == != < <= > >=
+
+The following operations have also been overridden however they may spit
+out nasty fractions.
+
+  ** sqrt
+
+Whenever you try to access a fraction as a string the string method
+will be called and when try to access it as a number the decimal method
+will be called.
+
+This means that almost all other operations will work however some might
+return decimals like the sin and cos;
+
+=head2 Notes on the AUTO tag
+
+With the AUTO tag set Fractions will be converted between SMALL and
+BIG as needed.  The BIG and SMALL tag will be I<*ignorded*> unless you
+explicitly specify NO_AUTO in auto to control how the fraction is
+stored.
+
+When you give it a number it will decide if it is small enough to be
+stored as a SMALL or if the fraction needs to converted to BIG.
+However, in order for it to recognize a big fraction the number needs to
+be in quotes, thus C<frac(7823495784957895478,781344567825678454)> will still
+be stored as a small with some of the digits lost.
+
+When calculating to SMALL numbers that results in a number that is to
+big for SMALL the calculation is done AGAIN but this time with BIG
+numbers (so that it will calculate all the digits correctly) and the
+new fraction will become a BIG.
+
+When calculating to BIG numbers that results in a number that is small
+enough to be a SMALL the new fraction will become a SMALL.
+
+Normally, the AUTO tag will save time as calculating with BIG numbers
+can be quite time consuming however it might slow thinks down if it
+constantly converts between the two thus in some cases it may be wise to
+turn it off.
+
+=head1 EXAMPLES
+
+This is a small demonstration of what the fraction module can do.
+
+It is run for the most part with these two functions.
+
+ sub pevel {print ">$_[0]\n"; $ans = eval $_[0]; print " $ans\n"; }
+ sub evelp {print ">$_[0]\n"; eval $_[0]; } 
+
+You can see it for yourself my typing in
+C<perl -e "use Math::FractionDemo; frac_calc;"> then frac_demo.
+
+ >frac(1, 3)
+  1/3
+ >frac(4, 3, MIXED)
+  1 1/3
+ >frac(1, 1, 3)
+  4/3
+ >frac(1, 1, 3, MIXED)
+  1 1/3
+ >frac(10)
+  10/1
+ >frac(10, MIXED)
+  10
+ >frac(.66667)
+  2/3
+ >frac(1.33333, MIXED)
+  1/3
+ >frac("5/6")
+  5/6
+ >frac("1 2/3")
+  5/3
+ >frac(10, 20, NO_REDUCE)
+  10/20
+
+ >$f1=frac(2,3); $f2=frac(4,5);
+ >$f1 + $f2
+  22/15
+ >$f1 * $f2
+  8/15
+ >$f1 + 1.6667
+  4/3
+ >$f2->modify_tag(MIXED)
+ >$f2 + 10
+  10 4/5
+ >frac($ans, NORMAL) # trick to create new fraction with different tags
+  54/5
+ >$f1 + $f2          # Add two unlikes it goes to default mode
+  22/15
+ >$f1**1.2
+  229739670999407/373719281884655
+ >$f1->num**1.2
+  0.614738607654485
+ >frac(1,2)+frac(2,5)
+  9/10
+
+ >$f1=frac(5,3,NORMAL); $f2=frac(7,5);
+ >"$f1  $f2"
+  5/3  7/5
+ >Math::Fraction->modify_tag(MIXED)
+ >"$f1  $f2"
+  5/3  1 2/5
+ >$f1 = frac("3267893629762/32678632179820")
+  3267893629762/32678632179820
+ >$f2 = frac("5326875886785/76893467996910")
+  5326875886785/76893467996910
+ >$f1->is_tag(BIG).",".$f2->is_tag(BIG) # Notice how neither is BIG
+  0,0
+ >$f1+$f2
+  21267734600460495169085706/125638667885089122116217810
+ >$ans->is_tag(BIG)                     # But this answer is.
+  1
+ >$f1*$f2
+  1740766377695750621849517/251277335770178244232435620
+ >$ans->is_tag(BIG)                     # And so is this one.
+  1
+
+ >$f1 = frac("3267893629762/32678632179820", BIG)
+  3267893629762/32678632179820
+ >$f1->is_tag(BIG)   # Notice how the big tag had no effect.
+  0
+ >$f1->modify_tag(NO_AUTO, BIG)
+ >$f1->is_tag(BIG)   # But now it does.  You have to turn off AUTO.
+  1
+ >$f1->num
+  .10000093063197482237806917498797382196606
+ >Math::Fraction->modify_digits(15)
+ >$f1->num
+  .1000009306319748
+ >$f1 = frac("0.1231231234564564564564564564561234567891234567891234")
+  13680347037037036999999999999963000037/
+                             111111111000000000000000000000000000000
+ >Math::Fraction->modify_digits(65)
+ >$f1->num
+  .123123123456456456456456456456123456789123456789123456789123456789
+
+ >$f1 = frac(7,5);
+ >$f2 = frac("3267893629762/32678632179820", NO_AUTO, BIG)
+ >Math::Fraction->modify_tag(MIXED); Math::Fraction->modify_digits(60)
+ >"$f1 ".$f2->num
+  1 2/5 .1000009306319748223780691749879738219660647769485035912494771
+ >Math::Fraction->load_set(DEFAULT)
+ >"$f1 ".$f2->num
+  7/5 .10000093063197482237806917498797382196606
+ >Math::Fraction->modify_digits(25)
+ >"$f1 ".$f2->num
+  7/5 .10000093063197482237806917
+ >$s = Math::Fraction->temp_set
+ >Math::Fraction->modify_tag(MIXED); Math::Fraction->modify_digits(15)
+ >"$f1 ".$f2->num
+  1 2/5 .1000009306319748
+ >Math::Fraction->temp_set($s)
+ >Math::Fraction->exists_set($s)
+ 
+ >"$f1 ".$f2->num  # Notice how it goes back to the previous settings.
+  7/5 .10000093063197482237806917
+ 
+ >Math::Fraction->name_set('temp1')
+ >Math::Fraction->modify_tag(MIXED, NO_AUTO)
+ >Math::Fraction->modify_digits(60)
+ >&s(Math::Fraction->tags, Math::Fraction->digits)
+  MIXED REDUCE SMALL NO_AUTO 60
+ >Math::Fraction->save_set  # If no name is given it will be saved via
+ >                          # its given name
+ >Math::Fraction->load_set(DEFAULT)
+ >&s(Math::Fraction->tags, Math::Fraction->digits)
+  NORMAL REDUCE SMALL AUTO undef
+ >&s(Math::Fraction->tags('temp1'), Math::Fraction->digits('temp1'))
+  MIXED REDUCE SMALL NO_AUTO 60
+ >  # ^^ Notice how this lets you preview other sets w/out loading them.
+ >Math::Fraction->load_set(DEFAULT)
+ >Math::Fraction->use_set('temp1')
+ >Math::Fraction->modify_tag(NO_REDUCE)
+ >&s(Math::Fraction->tags, Math::Fraction->digits)
+  MIXED NO_REDUCE SMALL NO_AUTO 60
+ >&s(Math::Fraction->tags('temp1'), Math::Fraction->digits('temp1'))
+  MIXED NO_REDUCE SMALL NO_AUTO 60
+ >  # ^^ Notice how this also modifies the temp1 tag becuase it is
+ >  #    being used if it was just loaded it would not do this
+ >  #    becuase there is no link.
+
+=head1 NOTES
+
+Beta Release
+
+Originally Developed with Perl v 5.003_37 for Win32.
+
+Has been testing on Perl Ver 5.003 on a solaris machine and perl
+5.004 on Windows 95.
+
+Built on a Linux 2 machine with perl v5.003.
+
+Please send me feedback at kevina@clark.net
+
+This is my first real attempt at writing a Perl Module and at
+Object-Oriented Programming. (Although I know this is not a true-true
+Object-Oriented Module as I cheated a little). I mainly wrote it to
+teach my self how to program Object-Oriently in Perl and for the challenge.
+
+If you know of any faster or simpler way of doing any this please let me
+know.
+
+=head1 SEE ALSO
+
+L<Math::FractionDemo>, L<perl>
+
+=head1 AUTHOR and COPYRIGHT 
+
+Kevin Atkinson, kevina@clark.net
+
+Copyright (c) 1997 Kevin Atkinson.  All rights reserved.
+This program is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.
+
+=cut
