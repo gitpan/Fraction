@@ -59,3 +59,15 @@ Revision history for Perl extension Math::Fraction.
 
 .51b (18 Dec 97)
   Fixed bug in which the whole number part of repeating decimals was ignored
+
+.52b 
+  Fixed error in the EXAMPLES section of the manual due to the fixing of the
+      repeating decimal error
+  Added the RAW tag which will always include the sign
+  Minor corrections to the manual
+
+.53b (2 Feb 98)
+  Fixed a bug where negative mixed fractions will come out as -1 -1/4
+      instead of -1 1/4.
+  Fixed a bug so that frac(0,MIXED) will return 0 and not a 0 length string.
+  

@@ -3,7 +3,7 @@ package Math::Fraction;
 # Purpose: To Manipulate Exact Fractions
 #
 # Copyright 1997 by Kevin Atkinson (kevina@cark.net)
-# Version .51b  (18 Dec 1997)
+# Version .53b  (2 Feb 1998)
 # Beta Release
 # Originally Developed with Perl v 5.003_37 for Win32.
 # Has been testing on Perl Ver 5.003 on a solaris machine and Perl 5.004
@@ -15,7 +15,7 @@ package Math::Fraction;
 use vars qw($VERSION @ISA @EXPORT);
 
 require Exporter;
-$VERSION = ".51";
+$VERSION = "0.53";
 @ISA = qw(Exporter);
 @EXPORT = qw(frac);
 @EXPORT_OK = qw(reduce string decimal num list is_tag);
@@ -53,6 +53,7 @@ my %TAGS = (
   NORMAL     => [$OUTFORMAT, 'NORMAL'],
   MIXED      => [$OUTFORMAT, 'MIXED'],
   MIXED_RAW  => [$OUTFORMAT, 'MIXED_RAW'],
+  RAW        => [$OUTFORMAT, 'RAW'],
   DEF_MIXED  => [$OUTFORMAT, undef],
   REDUCE     => [$REDUCE, 'REDUCE'],
   NO_REDUCE  => [$REDUCE, 'NO_REDUCE'],
@@ -151,10 +152,14 @@ sub string {
       $string .= "$frac[0]"           if $frac[0] != 0;
       $string .= " "                  if $frac[0] != 0 and $frac[1] !=0;
       $string .= "$frac[1]/$frac[2]"  if $frac[1] != 0;
+      $string  = "0"                  if $string eq '';
       return $string;
   } elsif ($mixed eq 'MIXED_RAW') {
       @frac = $self->list('MIXED');
       return "$frac[0] $frac[1]/$frac[2]";
+  } elsif ($mixed eq 'RAW') {
+      @frac = $self->list;
+      return ($frac[0] >= 0 ? '+':'')."$frac[0]/$frac[1]";
   } else {
       @frac = $self->list;
       return "$frac[0]/$frac[1]";
@@ -167,7 +172,7 @@ sub list {
   if ($_[0] eq "MIXED") {
     my $whole=$frac[0]/$frac[1];
     $whole=int($whole) if not ref($frac[0]);
-    $frac[0] = $frac[0] - $frac[1]*$whole;
+    $frac[0] = abs($frac[0] - $frac[1]*$whole);
     @frac = ($whole, @frac);
   }
   foreach (@frac) {s/^\+//;};
@@ -843,7 +848,7 @@ __END__
 
 =head1 NAME
 
-Math::Fraction - To Manipulate Exact Fractions (v.51b, Beta Release)
+Math::Fraction - To Manipulate Exact Fractions (v.53b, Beta Release)
 
 =head1 SYNOPSIS
 
@@ -925,7 +930,7 @@ TAGS can equal 0, one or more of the following
 
 =over 4
 
-=item NORMAL|MIXED|MIXED_RAW|DEF_MIXED
+=item NORMAL|MIXED|MIXED_RAW|RAW|DEF_MIXED
 
 Controls How the fraction is displayed:
 
@@ -933,15 +938,19 @@ Controls How the fraction is displayed:
 
 =item NORMAL
 
-display it in the #/form
+display it in the #/# form
 
 =item MIXED_RAW
 
-display in the #/form;
+display it in the # #/# form
 
 =item MIXED
 
-the same as the above but if one part is equal to 0 it will leave it off.
+the same as MIXED_RAW but if one part is equal to 0 it will leave it off
+
+=item RAW
+
+the same as NORAML but always includes the sign
 
 =item DEF_MIXED
 
@@ -977,7 +986,7 @@ When the AUTO tag is set these tags will have NO effect.
 
 returns a reduced fraction but leaves the original object untouched.
 
-=item string(NORMAL|MIXED|MIXED_RAW)
+=item string(NORMAL|MIXED|MIXED_RAW|RAW)
 
 returns the fraction as a string.
 if no parameters are given the objects default display method
@@ -1227,7 +1236,7 @@ C<perl -e "use Math::FractionDemo; frac_calc;"> then frac_demo.
  >frac(.66667)
   2/3
  >frac(1.33333, MIXED)
-  1/3
+  1 1/3
  >frac("5/6")
   5/6
  >frac("1 2/3")
@@ -1241,7 +1250,7 @@ C<perl -e "use Math::FractionDemo; frac_calc;"> then frac_demo.
  >$f1 * $f2
   8/15
  >$f1 + 1.6667
-  4/3
+  7/3
  >$f2->modify_tag(MIXED)
  >$f2 + 10
   10 4/5
@@ -1364,7 +1373,7 @@ know.
 
 =head1 SEE ALSO
 
-L<Math::FractionDemo>, L<perl>
+L<Math::FractionDemo>, L<perl(1b)>
 
 =head1 AUTHOR and COPYRIGHT 
 

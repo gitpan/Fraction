@@ -1,4 +1,4 @@
-This is Math::Fraction v.51b
+This is Math::Fraction v.53b
 
 Purpose: To Manipulate Exact Fractions
 
@@ -8,7 +8,7 @@ Copyright (c) 1997 Kevin Atkinson.  All rights reserved.
 This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
-Version .51b  (18 Dec 1997)
+Version .53b  (2 Feb 1998)
 Beta Release
 
 Originally Developed with Perl v 5.003_37 for Win32.

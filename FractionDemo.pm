@@ -1,12 +1,12 @@
 package Math::FractionDemo;
 
-# Math::Fraction v.51b (18 Dec 1997) Test Script
+# Math::Fraction v.53b (2 Feb 1998) Test Script
 
 use Math::Fraction qw(:DEFAULT :STR_NUM);
 
 require Exporter;
 use vars qw($VERSION);
-$VERSION = ".3"; 
+$VERSION = ".53";
 @ISA = qw(Exporter);
 @EXPORT = qw(frac_calc frac_demo);
 
@@ -238,7 +238,7 @@ This script can also be run from frac_calc.
 
 =head1 SEE ALSO
 
-L<Math::Fraction>, L<perl>
+L<Math::Fraction>, L<perl(1p)>
 
 =head1 AUTHOR and COPYRIGHT 
 
